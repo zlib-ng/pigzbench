@@ -27,12 +27,8 @@ python3 a_compile.py
 python3 b_speed_threads.py
 python3 c_decompress.py 
 python3 d_speed_size.py 
-#optional: test large Silesia corpus
-python3  _install_corpus.py
-python3 b_speed_threads.py
-python3 c_decompress.py 
-python3 d_speed_size.py 
-
+#optional: test large Silesia corpus, report fastest of 5 runs
+python3 f_speed_size_decompress.py
 ```
 ## Dependencies
 
@@ -69,6 +65,12 @@ d_speed_size.plot('speed_size.pkl')
 3. `c_decompress.py` evaluates the decompression speed. In general, the gzip format is slow to compress but fast to decompress (particularly compared to formats developed at the same time). However, gzip decompression is slow relative to the modern [zstd](https://facebook.github.io/zstd/). Further, while gzip compression can benefit from parallel processing, decompression does not. An important feature of this script is that each variant of zlib contributes compressed files to the testing corpus, and then each tool is tested on this full corpus. This ensures we are [comparing similar tasks](https://github.com/zlib-ng/zlib-ng/issues/326), as some zlib compression methods might generate smaller files at the cost of creating files that are slower to decompress. The script also validates the compression and decompression of each datatype, ensuring the process is truly lossless.
 4. `d_speed_size.sh` compares different variants of pigz to gzip, zstd and bzip2 for compressing the corpus. Each tool is tested at different compression levels, but always using the preferred number of threads.
 5. `e_test_mgzip.py` evaluates [mgzip](https://pypi.org/project/mgzip/) which creates gz format files that are both compressed and decompressed in parallel. The files created by this method can be decompressed by any gz compatible tool, but the faster parallel decompression requires using mgzip.
+6. `f_speed_size_decompress.py` combines `c_decompress.py` and `d_speed_size.sh` into a single script. The strength of this script is that it is easy to extend. You can edit it to include additional compressors. For example, commented out lines test `lz4` and `xz` compres./sion. It can be run with two optional arguments. The first sets the folder with files to compress (defaults to `./corpus`). The second allows you to determine how many runs are computed (default 3). This script reports the **fastest** time across all the runs.
+
+##Testing custom versions of pigz
+
+The script `a_compile.py` will compile 3 popular variants of pigz and copy these to the `exe` folder. The subsequent scripts will test all executables in this folder. Therefore, you can copy your own variation into this folder and compare your best effort against the competition. [Issue 1](https://github.com/neurolabusc/pigz-bench-python/issues/1) describes how to easily compile a custom variation without changing the base version.
+
 
 ## Alternatives
 

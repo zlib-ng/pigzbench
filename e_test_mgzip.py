@@ -1,6 +1,4 @@
-#
-#python3 test.py        #compress files in "corpus" folder
-#python3 test.py  indir #compress files in indir folder
+#!/usr/bin/env python3
 
 import os       
 import gzip
