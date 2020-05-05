@@ -1,12 +1,18 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import os
+import argparse
 import stat
 import shutil
 import subprocess
 import platform
 import zipfile
 from distutils.dir_util import copy_tree
+
+parser = argparse.ArgumentParser(description='Pigz script')
+parser.add_argument('--rebuild', help='Rebuild', action='store_const', const=True, default=None)
+args, unknown = parser.parse_known_args()
+
 
 def rmtree(top):
     """Delete folder and contents: shutil.rmtree has issues with read-only files on Windows"""
@@ -20,6 +26,7 @@ def rmtree(top):
             os.rmdir(os.path.join(root, name))
     os.rmdir(top)
 
+
 def install_silesia_corpus():
     """Install popular Silesia corpus"""
 
@@ -30,9 +37,9 @@ def install_silesia_corpus():
     try:
         os.mkdir(corpusdir)
     except OSError:
-        print('Creation of the directory {} failed' .format(corpusdir) )
+        print('Creation of the directory {} failed' .format(corpusdir))
     cmd = 'git clone https://github.com/MiloszKrajewski/SilesiaCorpus silesia'
-    print("Installing "+corpusdir);
+    print("Installing "+corpusdir)
     subprocess.call(cmd, shell=True)
     os.chdir(corpusdir)
     fnm = 'README.md'
@@ -50,6 +57,7 @@ def install_silesia_corpus():
             os.remove(file_name)  # delete zipped file
     os.chdir(basedir)
 
+
 def install_neuro_corpus():
     """Install neuroimaging corpus"""
 
@@ -60,7 +68,7 @@ def install_neuro_corpus():
     try:
         os.mkdir(corpusdir)
     except OSError:
-        print('Creation of the directory {} failed' .format(exedir) )
+        print('Creation of the directory {} failed' .format(exedir))
     cmd = 'git clone https://github.com/neurolabusc/zlib-bench.git'
     subprocess.call(cmd, shell=True)
     indir = os.path.join(basedir, 'zlib-bench', 'corpus')
@@ -71,51 +79,96 @@ def install_neuro_corpus():
     indir = os.path.join(basedir, 'zlib-bench')
     rmtree(indir)
 
-def compile_pigz():
+
+def compile_pigz(rebuild=True):
     """compile variants of pigz"""
 
-    methods = ['ng']
-    if platform.system() == 'Windows':
-        methods = ['Cloudflare', 'ng']
+    methods = [
+        {'name': 'madler',
+         'repository': 'https://github.com/madler/zlib',
+         'branch': None},
+        {'name': 'cloudflare',
+         'repository': 'https://github.com/cloudflare/zlib',  # Only supports 64-bit builds
+         'branch': None},
+        {'name': 'ng',
+         'repository': 'https://github.com/zlib-ng/zlib-ng',
+         'branch': 'develop'}
+    ]
     basedir = os.getcwd()
     exedir = os.path.join(basedir, 'exe')
+
     if os.path.isdir(exedir):
         rmtree(exedir)
-    try:
+    if not os.path.isdir(exedir):
         os.mkdir(exedir)
-    except OSError:
-        print ("Creation of the directory {} failed" .format(exedir) )
-    pigzdir = './pigz'
-    if os.path.isdir(pigzdir):
-        rmtree(pigzdir)
-    cmd = 'git clone https://github.com/neurolabusc/pigz'
-    subprocess.call(cmd, shell=True)
-    pigzdir = os.path.join(basedir, 'pigz', 'build')
-    pigzexe = os.path.join(pigzdir, 'bin', 'pigz')
+
     ext = ''
     if platform.system() == 'Windows':
         ext = '.exe'
-    pigzexe = pigzexe + ext
+
     for method in methods:
         os.chdir(basedir)
-        if os.path.isdir(pigzdir):
-            rmtree(pigzdir)
-        os.mkdir(pigzdir)
-        os.chdir(pigzdir)
-        cmd = 'cmake -DZLIB_IMPLEMENTATION=' + method + ' ..'
-        subprocess.call(cmd, shell=True)
-        cmd = 'make'
+
+        pthreads4wdir = os.path.join(basedir, 'pthreads4w')
+        if rebuild or not os.path.exists('pthreads4w') and platform.system() == 'Windows':
+            cmd = 'git clone https://github.com/jwinarske/pthreads4w'
+            subprocess.call(cmd, shell=True)
+
+        zlibname = 'zlib-{0}'.format(method['name'])
+        if rebuild or not os.path.exists(zlibname):
+            if os.path.isdir(zlibname):
+                rmtree(zlibname)
+            print("Checking out zlib source code for {0}".format(method['name']))
+            cmd = 'git clone {0} {1}'.format(method['repository'], zlibname)
+            subprocess.call(cmd, shell=True)
+
+        pigzname = 'pigz-{0}'.format(method['name'])
+        if rebuild or not os.path.exists(pigzname):
+            if os.path.isdir(pigzname):
+                rmtree(pigzname)
+            print("Checking out pigz source code for {0}".format(method['name']))
+            cmd = 'git clone https://github.com/madler/pigz {0}'.format(pigzname)
+            subprocess.call(cmd, shell=True)
+
+        os.chdir(zlibname)
+        if method['branch']:
+            cmd = 'git checkout {0}'.format(method['branch'])
+            subprocess.call(cmd, shell=True)
+
+        pigzdir = os.path.join(basedir, pigzname)
+        copy_tree(os.path.join(basedir, 'pigz'), pigzdir)
+        builddir = os.path.join(pigzdir, 'build')
+        if rebuild or not os.path.exists(builddir):
+            if os.path.isdir(builddir):
+                rmtree(builddir)
+            os.mkdir(builddir)
+
+        os.chdir(builddir)
+
+        cmd = 'cmake  .. -DZLIB_ROOT:PATH=../{0} -DZLIB_COMPAT=ON -DBUILD_SHARED_LIBS=OFF'.format(zlibname)
         if platform.system() == 'Windows':
-            cmd = 'cmake --build . --config Release'
+            cmd += ' -DPTHREADS4W_ROOT:PATH=../pthreads4w'
         subprocess.call(cmd, shell=True)
-        outnm = os.path.join(exedir, 'pigz' + method + ext)
-        print (pigzexe + '->' + outnm)
+
+        cmd = 'cmake --build . --config Release'
+        subprocess.call(cmd, shell=True)
+
+        pigzexe = os.path.join(builddir, 'bin', 'pigz' + ext)
+        if not os.path.exists(pigzexe):
+            pigzexe = os.path.join(builddir, 'pigz' + ext)
+        if not os.path.exists(pigzexe):
+            pigzexe = os.path.join(builddir, 'Release', 'pigz' + ext)
+
+        outnm = os.path.join(exedir, pigzname + ext)
         shutil.move(pigzexe, outnm)
+        print(pigzexe + '->' + outnm)
 
 
 if __name__ == '__main__':
     """compile variants of pigz and sample compression corpus"""
 
-    install_neuro_corpus()
-    install_silesia_corpus()
-    compile_pigz()
+    if args.rebuild:
+        install_neuro_corpus()
+        install_silesia_corpus()
+
+    compile_pigz(args.rebuild)
