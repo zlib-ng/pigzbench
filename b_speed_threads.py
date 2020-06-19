@@ -9,6 +9,7 @@ import sys
 import stat
 import shutil
 import pandas as pd
+import psutil
 import ntpath
 import subprocess
 import time
@@ -31,7 +32,7 @@ def _cmp(
     subprocess.call(cmd, shell=True)
 
 
-def test_cmp(exe='gzip', indir='', max_threads=0):
+def test_cmp(exe='gzip', indir='', max_threads=0, repeats = 1, resultsFile = 'gz.pkl'):
     """Test compression of executable 'exe' for files in folder 'indir' up to 'max_threads' cores"""
 
     if len(indir) < 1:
@@ -50,25 +51,29 @@ def test_cmp(exe='gzip', indir='', max_threads=0):
     threads = 0
     while threads <= max_threads:
         for level in [3, 6, 9]:
-            t0 = time.time()
+            seconds = float("inf")
             size = 0
             nsize = 0
-            for f in os.listdir(indir):
-                if not os.path.isfile(os.path.join(indir, f)):
-                    continue
-                if f.startswith('.'):
-                    continue
-                if not f.endswith('.zst') and not f.endswith('.gz') \
-                    and not f.endswith('.bz2'):
-                    fnm = os.path.join(indir, f)
-                    _cmp(exe, fnm, level, threads)
-                    size = size + os.stat(fnm).st_size
-                    fnmz = fnm + '.gz'
-                    if os.path.isfile(fnmz):
-                        nsize = nsize + os.stat(fnmz).st_size
-                    else:
-                        print('Error: missing "' + fnmz + '"')
-            seconds = time.time() - t0
+            for rep in range(repeats):
+                t0 = time.time()
+                for f in os.listdir(indir):
+                    if not os.path.isfile(os.path.join(indir, f)):
+                        continue
+                    if f.startswith('.'):
+                        continue
+                    if not f.endswith('.zst') and not f.endswith('.gz') \
+                        and not f.endswith('.bz2'):
+                        fnm = os.path.join(indir, f)
+                        _cmp(exe, fnm, level, threads)
+                        if rep > 0:
+                            continue
+                        size = size + os.stat(fnm).st_size
+                        fnmz = fnm + '.gz'
+                        if os.path.isfile(fnmz):
+                            nsize = nsize + os.stat(fnmz).st_size
+                        else:
+                            print('Error: missing "' + fnmz + '"')
+                seconds = min(seconds, time.time() - t0)
             bytes_per_mb = 1000000
             speed = size / bytes_per_mb / seconds
             print('{}\t{}\t{:.0f}\t{:.0f}\t{:.2f}\t{}'.format(
@@ -94,17 +99,15 @@ def test_cmp(exe='gzip', indir='', max_threads=0):
             row_df.columns = ['exe', 'size %', ' speed mb/s   ', 'level'
                               , 'threads']
             try:
-                df = pd.read_pickle('speed_threads.pkl')
+                df = pd.read_pickle(resultsFile)
                 df = pd.concat([row_df, df], ignore_index=True)
             except (OSError, IOError) as e:
                 df = row_df
-            df.to_pickle('speed_threads.pkl')
+            df.to_pickle(resultsFile)
         inc = max(threads, 1)
         inc = min(inc, 4)
         threads = threads + inc
-
         # clean up
-
         for f in os.listdir(indir):
             if not os.path.isfile(os.path.join(indir, f)):
                 continue
@@ -128,26 +131,39 @@ def plot(resultsFile):
     df = pd.read_pickle(resultsFile)
     sns.set()
     ax = sns.lineplot(x=' speed mb/s   ', y='threads', hue='exe',
-                      style='level', data=df)
+                      style='level', data=df, marker='o')
     ax.set_title('Parallel Compression Speed')
-    plt.show()
+    #plt.show()
+    plt.savefig(resultsFile.replace('.pkl', '.png'))
 
 
 if __name__ == '__main__':
-    """Test how compression speed scales with threads"""
+    """Compare speed and size for different compression tools
 
-    indir = './corpus'
+    Parameters
+    ----------
+    indir : str
+        folder with files to compress (default './corpus')
+    repeats : int
+     how many times is each file compressed (default 3)    
+    """
+
+    indir = './silesia'
     if len(sys.argv) > 1:
         indir = sys.argv[1]
     if not os.path.isdir(indir):
         sys.exit('Run a_compile.py first: Unable to find ' + indir)
+    repeats = 7
+    if len(sys.argv) > 2:
+        repeats = int(sys.argv[2])
     exedir = './exe'
     if not os.path.isdir(exedir):
         sys.exit('Run 1compile.py before first: Unable to find '+ exedir)
-    resultsFile = 'speed_threads.pkl'
+    resultsFile = ntpath.basename(indir)+'_speed_threads.pkl'
     if os.path.exists(resultsFile):
         os.remove(resultsFile)
-    test_cmp('gzip', indir, 0)
+    max_threads = psutil.cpu_count(logical = False)
+    test_cmp('gzip', indir, 0, repeats, resultsFile)
     for exe in os.listdir(exedir):
         exe = os.path.join(exedir, exe)
         if os.path.isfile(exe):
@@ -156,5 +172,5 @@ if __name__ == '__main__':
             executable = stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH
             if mode & executable:
                 exe = os.path.abspath(exe)
-                test_cmp(exe, indir, os.cpu_count())
+                test_cmp(exe, indir, max_threads, repeats, resultsFile)
     plot(resultsFile)

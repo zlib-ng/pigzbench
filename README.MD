@@ -2,21 +2,23 @@
 
 ## Introduction
 
-These simple Python scripts benchmark different zlib compression libraries for the [pigz](https://zlib.net/pigz/) parallel compressor. Parallel compression can use multiple cores available with modern computers to rapidly compress data. This technique can be combined with the [CloudFlare zlib](https://github.com/cloudflare/zlib) which accelerates compression using other features of modern hardware. Here, I have adapted the script to evaluate .gz compression of [NIfTI](https://nifti.nimh.nih.gov/) format brain images. It is common for tools like [AFNI](https://afni.nimh.nih.gov/) and [FSL](https://fsl.fmrib.ox.ac.uk/fsl/fslwiki) to save NIfTI images using gzip compression (.nii.gz files).  Modern MRI methods such as multi-band yield huge datasets, so considerable [time](https://github.com/rordenlab/niimath) spent compressing these images.   
+These simple Python scripts benchmark different zlib compression libraries for the [pigz](https://zlib.net/pigz/) parallel compressor. Parallel compression can use multiple cores available with modern computers to rapidly compress data. This technique can be combined with the [CloudFlare zlib](https://github.com/cloudflare/zlib) or [zlib-ng](https://github.com/zlib-ng/zlib-ng/) which accelerates compression using other features of modern hardware. 
 
-The  graph below shows the performance of pigz variants with increasing numbers of threads (CPU cores) devoted to the compression. The test system was a 6-core (12 thread) Intel [i7-8750H](https://ark.intel.com/content/www/us/en/ark/products/134906/intel-core-i7-8750h-processor-9m-cache-up-to-4-10-ghz.html):
+By default, these scripts examine compression and decompression of the [Silesia compression corpus](http://sun.aei.polsl.pl/~sdeor/index.php?page=silesia). Some compression methods work particularly well for some datasets (for example, the  Italian alphabet only has 21 letters, whereas some other languages have a larger set). The scripts will also install an optional corpus of brain imaging data in the [NIfTI](https://nifti.nimh.nih.gov/) format.  It is common for tools like [AFNI](https://afni.nimh.nih.gov/) and [FSL](https://fsl.fmrib.ox.ac.uk/fsl/fslwiki) to save NIfTI images using gzip compression (.nii.gz files).  Modern MRI methods such as multi-band yield huge datasets, so considerable [time](https://github.com/rordenlab/niimath) spent compressing these images. You can also choose to compress the files in any folder you wish, allowing you to createe a custom corpus. You can also download and test the [Canterbury corpus](https://corpus.canterbury.ac.nz/purpose.html) or the [Calgary corpus](http://www.data-compression.info/Corpora/CalgaryCorpus/).
 
-![alt tag](https://github.com/neurolabusc/pigz-bench-python/blob/master/speed_threads.png)
+The  graph below shows the performance of pigz variants compressing the Silesia corpus with increasing numbers of threads (CPU cores) devoted to the compression. The test system was a 12-core (24 thread) AMD Ryzen 3900X:
 
-The next graph shows each tool using its preferred number of threads to compress the neuroimaging dataset. All versions of pigz outperform the system's single threaded gzip. One can see that the [modern zstd](https://facebook.github.io/zstd/) format dominates the older and simpler gzip. gzip has been widely adopted in many fields (for example in brain imaging it is used for [NIfTI](https://nifti.nimh.nih.gov), [NRRD](http://teem.sourceforge.net/nrrd/format.html) and [AFNI](https://afni.nimh.nih.gov/pub/dist/doc/program_help/README.compression.html)). The simplicity of the gzip format means it is easy for developers to include support in their tools. Therefore, gzip plays an important niche in the community. However, modern formats that were designed for modern hardware and leveraging new techniques have inherent benefits.
+![alt tag](https://github.com/neurolabusc/pigz-bench-python/blob/master/silesia_speed_threads.png)
 
-![alt tag](https://github.com/neurolabusc/pigz-bench-python/blob/master/speed_size.png)
+The next graph shows each tool using its preferred number of threads to compress the Silesia corpus. All versions of pigz outperform the system's single threaded gzip. One can see that the [modern zstd](https://facebook.github.io/zstd/) format dominates the older and simpler gzip. gzip has been widely adopted in many fields (for example in brain imaging it is used for [NIfTI](https://nifti.nimh.nih.gov), [NRRD](http://teem.sourceforge.net/nrrd/format.html) and [AFNI](https://afni.nimh.nih.gov/pub/dist/doc/program_help/README.compression.html)). The simplicity of the gzip format means it is easy for developers to include support in their tools. Therefore, gzip plays an important niche in the community. However, this graph demonstrates that modern compression formats (like zstd) that were designed for modern hardware and leveraging new techniques have inherent benefits.
 
-The script `c_decompress.py` allows us to compare speed of decompression. Decompression is faster than compression. However, gzip decompression can not leverage multiple threads, and is generally slower than [modern compression formats](https://facebook.github.io/zstd/). However, the modern zstd is not [tuned for the datatypes common in science](https://github.com/facebook/zstd/issues/1492). The tests below illustrate that gz decompression remains competitive in this niche. In this test, all gz tools are decompressing the same data. In contrast, bzip2 and ztd are decompressing data that was compressed to a smaller size. It is typical for more compact compression to use more complicated algorithms, so  comparing between formats is challenging. Regardless, among gz tools, zlib-ng shows superior decompression performance: 
+![alt tag](https://github.com/neurolabusc/pigz-bench-python/blob/master/silesia_speed_size.png)
+
+The script `c_decompress.py` allows us to compare speed of decompression. Decompression is faster than compression. However, gzip decompression can not leverage multiple threads, and is generally slower than [modern compression formats](https://facebook.github.io/zstd/). However, the modern zstd is not [tuned for the datatypes common in science](https://github.com/facebook/zstd/issues/1492). The tests below illustrate that gz decompression remains competitive in this niche. In this test, all gz tools are decompressing the same data (addressing a concern by [Sebastian Pop](https://github.com/zlib-ng/zlib-ng/issues/326) that different gzip compressors create different file sizes, and smaller files might be more complicated and therefore slower to extract). In contrast, bzip2 and ztd are decompressing data that was compressed to a smaller size. It is typical for more compact compression to use more complicated algorithms, so  comparing between formats is challenging. Regardless, among gz tools, zlib-ng shows superior decompression performance: 
 
 | Speed (mb/s)  | pigz-CF  | pigz-ng  | pigz-Sys |   gzip   |  pbzip2  |   zstd   |
 | ------------- | -------- | -------- | -------- | -------- | -------- | -------- |
-| Decompression |     278  |     300  |     274  |     244  |     122  |     236  |
+| Decompression |     307  |     361  |     306  |     189  |     448  |     528  |
 
 ## Running the benchmark
 
@@ -27,7 +29,6 @@ python3 a_compile.py
 python3 b_speed_threads.py
 python3 c_decompress.py 
 python3 d_speed_size.py 
-#optional: test large Silesia corpus, report fastest of 5 runs
 python3 f_speed_size_decompress.py
 ```
 ## Dependencies
@@ -41,6 +42,7 @@ You may have to install some Python packages. You can install these with your fa
 
 ```
 pip3 install seaborn
+pip3 install psutil
 ```
 
 This should be sufficient for most modern systems (since installing seaborn should install `pandas`, `scipy`, `numpy`). However, you may need to install additional dependencies (e.g. `pip3 install Cython; pip3 install numpy`).

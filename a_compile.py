@@ -74,7 +74,7 @@ def install_neuro_corpus():
 def compile_pigz():
     """compile variants of pigz"""
 
-    methods = ['Cloudflare', 'System', 'ng']
+    methods = ['ng']
     if platform.system() == 'Windows':
         methods = ['Cloudflare', 'ng']
     basedir = os.getcwd()

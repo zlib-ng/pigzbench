@@ -76,7 +76,7 @@ def test_cmp(
         sys.exit()
     meth = ntpath.basename(exe)
     print('Method\tLevel\tms\tmb/s\t%')
-    for lvl in range(2, max_level + 1):
+    for lvl in range(1, max_level + 1):
         t0 = time.time()
         size = 0
         nsize = 0
@@ -140,7 +140,7 @@ def plot(resultsFile):
     import matplotlib.pyplot as plt
     df = pd.read_pickle(resultsFile)
     sns.set()
-    ax = sns.lineplot(x='speed mb/s', y='size %', hue='exe', data=df)
+    ax = sns.lineplot(x='speed mb/s', y='size %', hue='exe', data=df, marker='o')
     plt.show()
 
 

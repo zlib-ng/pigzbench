@@ -78,7 +78,7 @@ def test_cmp(
         sys.exit()
     meth = ntpath.basename(exe)
     print('CompressMethod\tLevel\tms\tmb/s\t%')
-    for lvl in range(2, max_level + 1):
+    for lvl in range(1, max_level + 1):
         size = 0
         nsize = 0
         seconds = float("inf")
@@ -138,7 +138,7 @@ def plot(results_file):
     #    exit()
     df = pd.read_pickle(results_file)
     sns.set()
-    sns_plot = sns.lineplot(x='speed mb/s', y='size %', hue='exe', data=df)
+    sns_plot = sns.lineplot(x='speed mb/s', y='size %', hue='exe', data=df, marker='o')
     #plt.show()
     plt.savefig(results_file.replace('.pkl', '.png'))
 
@@ -268,7 +268,7 @@ def compress_all_levels(exe, indir, tmpdir, exts):
     if not os.path.exists(method) and not shutil.which(method):
         print('Skipping test: Unable to find "' + method + '"')
         return 0
-    for lvl in range(2, max_level+1):
+    for lvl in range(1, max_level+1):
         for f in os.listdir(indir):
             if not os.path.isfile(os.path.join(indir, f)):
                 continue
@@ -344,11 +344,11 @@ if __name__ == '__main__':
     if len(sys.argv) > 1:
         indir = sys.argv[1]
     if len(indir) < 1:
-        indir = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'corpus')
+        indir = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'silesia')
     if not os.path.isdir(indir):
         print('Run a_compile.py first: Unable to find "' + indir +'"')
         sys.exit()
-    repeats = 3
+    repeats = 7
     if len(sys.argv) > 2:
         repeats = int(sys.argv[2])
     results_file = ntpath.basename(indir)+'_speed_size.pkl'

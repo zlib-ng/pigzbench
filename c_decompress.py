@@ -169,7 +169,7 @@ def compress_corpus_gz(methods, indir, tmpdir):
     size = 0
     for method in methods:
         meth = ntpath.basename(method)
-        for lvl in range(2, 10):
+        for lvl in range(1, 10):
             for f in os.listdir(indir):
                 if not os.path.isfile(os.path.join(indir, f)):
                     continue
