@@ -33,7 +33,7 @@ def install_silesia_corpus():
     basedir = os.getcwd()
     corpusdir = os.path.join(basedir, 'silesia')
     if os.path.isdir(corpusdir):
-        rmtree(corpusdir)
+        return
     try:
         os.mkdir(corpusdir)
     except OSError:
@@ -64,7 +64,7 @@ def install_neuro_corpus():
     basedir = os.getcwd()
     corpusdir = os.path.join(basedir, 'corpus')
     if os.path.isdir(corpusdir):
-        rmtree(corpusdir)
+        return
     try:
         os.mkdir(corpusdir)
     except OSError:
@@ -167,8 +167,7 @@ def compile_pigz(rebuild=True):
 if __name__ == '__main__':
     """compile variants of pigz and sample compression corpus"""
 
-    if args.rebuild:
-        install_neuro_corpus()
-        install_silesia_corpus()
+    install_neuro_corpus()
+    install_silesia_corpus()
 
     compile_pigz(args.rebuild)
