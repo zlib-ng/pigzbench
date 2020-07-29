@@ -85,14 +85,13 @@ def compile_pigz(rebuild=True):
 
     methods = [
         {'name': 'madler',
-         'repository': 'https://github.com/madler/zlib',
-         'branch': None},
+         'repository': 'https://github.com/madler/zlib'},
         {'name': 'cloudflare',
-         'repository': 'https://github.com/cloudflare/zlib',  # Only supports 64-bit builds
-         'branch': None},
+         'repository': 'https://github.com/cloudflare/zlib'},  # Only supports 64-bit builds
         {'name': 'ng',
          'repository': 'https://github.com/zlib-ng/zlib-ng',
-         'branch': 'develop'}
+         'branch': 'develop',
+         'cmake_args': '-DZLIB_COMPAT=ON'}
     ]
     basedir = os.getcwd()
     exedir = os.path.join(basedir, 'exe')
@@ -131,7 +130,7 @@ def compile_pigz(rebuild=True):
             subprocess.call(cmd, shell=True)
 
         os.chdir(zlibname)
-        if method['branch']:
+        if 'branch' in method and method['branch']:
             cmd = 'git checkout {0}'.format(method['branch'])
             subprocess.call(cmd, shell=True)
 
@@ -145,7 +144,9 @@ def compile_pigz(rebuild=True):
 
         os.chdir(builddir)
 
-        cmd = 'cmake  .. -DZLIB_ROOT:PATH=../{0} -DZLIB_COMPAT=ON -DBUILD_SHARED_LIBS=OFF'.format(zlibname)
+        cmd = 'cmake  .. -DZLIB_ROOT:PATH=../{0} -DBUILD_SHARED_LIBS=OFF'.format(zlibname)
+        if 'cmake_args' in method:
+            cmd += ' ' + method['cmake_args']
         if platform.system() == 'Windows':
             cmd += ' -DPTHREADS4W_ROOT:PATH=../pthreads4w'
         subprocess.call(cmd, shell=True)
