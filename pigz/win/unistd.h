@@ -36,7 +36,12 @@
 #define _exit(s)     exit(s)
 
 typedef unsigned short uint_least16_t;
+
 typedef SSIZE_T ssize_t;
+
+#ifndef SSIZE_MAX
+#define SSIZE_MAX ((ssize_t)(((size_t)-1)/2))
+#endif
 
 int fsync (int fd) {
   HANDLE h = (HANDLE) _get_osfhandle (fd);
