@@ -32,8 +32,9 @@
 
 #define chown(p,o,g) 0
 #define utimes(p,t)  0
-#define lstat(p,s)   stat(p,s)
-#define _exit(s)     exit(s)
+#define stat         _stat64
+#define lstat        _stat64
+#define _exit        exit
 
 typedef unsigned short uint_least16_t;
 
